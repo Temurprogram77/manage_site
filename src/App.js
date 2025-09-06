@@ -22,8 +22,6 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/explanation" element={<Explanation />} />
-
-          {/* ExamPage – imtihon sahifasi */}
           <Route path="/exam" element={<ExamPage />} />
 
           {/* ExamHistoryPage – imtihon sahifasi istoriyasi */}
