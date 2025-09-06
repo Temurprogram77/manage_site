@@ -20,8 +20,6 @@ function App() {
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
-
-          {/* Dashboard sahifasi – foydalanuvchi asosiy paneli */}
           <Route path="/dashboard" element={<Dashboard />} />
 
           {/* Explanation sahifasi – tushuntirish sahifasi */}
