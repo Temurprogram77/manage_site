@@ -18,8 +18,6 @@ function App() {
     <StarProvider>
       <Router>
         <Routes>
-          
-          {/* Boshlang‘ich landing sahifa */}
           <Route path="/" element={<Landing />} />
 
           {/* Login sahifasi */}
