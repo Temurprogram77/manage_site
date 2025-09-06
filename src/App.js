@@ -17,7 +17,6 @@ function App() {
   return (
     <StarProvider>
       <Router>
-        {/* Routes ichida barcha sahifalar va ularning pathlarini belgilaymiz */}
         <Routes>
           
           {/* Boshlang‘ich landing sahifa */}
