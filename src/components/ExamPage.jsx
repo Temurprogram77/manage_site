@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useStars } from "../StarContext";
 import "./ExamPage.css";
-import micro from "../assets/micro.png"
+import micro from "../assets/micro.png";
 
 const QUESTIONS = [
   { id: 1, part: 1, number: 1, text: "What is the capital of France?", answer: "paris" },
@@ -22,30 +22,7 @@ const ExamPage = () => {
   const [transcript, setTranscript] = useState("");
   const [results, setResults] = useState([]);
   const [finished, setFinished] = useState(false);
-  const recognitionRef = useRef(null);
   const timerRef = useRef(null);
-
-  // SpeechRecognition init
-  useEffect(() => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) return;
-
-    const recog = new SpeechRecognition();
-    recog.lang = "en-US";
-    recog.interimResults = false;
-    recog.continuous = false;
-    recognitionRef.current = recog;
-
-    recog.onresult = (e) => {
-      const text = Array.from(e.results).map(r => r[0].transcript).join(" ").trim();
-      setTranscript(text);
-      evaluateAnswer(text);
-      setListening(false);
-    };
-
-    recog.onerror = () => setListening(false);
-    recog.onend = () => setListening(false);
-  }, []);
 
   // Timer + TTS
   useEffect(() => {
@@ -56,7 +33,7 @@ const ExamPage = () => {
     speakText(QUESTIONS[index].text);
 
     clearInterval(timerRef.current);
-    timerRef.current = setInterval(() => setTimeLeft(t => t - 1), 1000);
+    timerRef.current = setInterval(() => setTimeLeft((t) => t - 1), 1000);
 
     return () => clearInterval(timerRef.current);
   }, [index, finished]);
@@ -81,7 +58,10 @@ const ExamPage = () => {
       isCorrect = normalizedUser === correctAnswer;
     }
 
-    setResults(prev => [...prev, { questionId: q.id, correct: isCorrect, answer: normalizedUser }]);
+    setResults((prev) => [
+      ...prev,
+      { questionId: q.id, correct: isCorrect, answer: normalizedUser },
+    ]);
     if (isCorrect) addStar();
 
     // 🔹 Javobni API'ga yuborish
@@ -97,11 +77,11 @@ const ExamPage = () => {
         answer: normalizedUser || null,
       }),
     })
-      .then(res => res.json())
-      .then(data => {
+      .then((res) => res.json())
+      .then((data) => {
         console.log("✅ Answer API javobi:", data);
       })
-      .catch(err => {
+      .catch((err) => {
         console.error("❌ Answer API xato:", err);
       });
 
@@ -109,7 +89,7 @@ const ExamPage = () => {
 
     setTimeout(() => {
       if (index + 1 < QUESTIONS.length) {
-        setIndex(i => i + 1);
+        setIndex((i) => i + 1);
         setTranscript("");
         setTimeLeft(TIME_PER_QUESTION);
       } else {
@@ -118,36 +98,54 @@ const ExamPage = () => {
     }, 900);
   };
 
-  const startListening = () => {
-    const recog = recognitionRef.current;
-    if (!recog) {
-      alert("Your browser does not support speech recognition.");
-      return;
-    }
-
-    // 🔹 Testni boshlash API
-    const token = localStorage.getItem("token");
-    fetch("http://167.86.121.42:8080/api/test/startTest", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: token ? `Bearer ${token}` : "",
-      },
-      body: JSON.stringify({
-        questionId: QUESTIONS[index].id,
-        answer: null,
-      }),
-    })
-      .then(res => res.json())
-      .then(data => console.log("✅ Start API javobi:", data))
-      .catch(err => console.error("❌ Start API xato:", err));
-
-    setTranscript("");
-    setListening(true);
+  // 🔹 Mikrofonni bosganda yozib olish va OpenAI Whisper API'ga yuborish
+  const startListening = async () => {
     try {
-      recog.start();
-    } catch {
-      setListening(false);
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      let audioChunks = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        audioChunks.push(event.data);
+      };
+
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
+        const formData = new FormData();
+        formData.append("file", audioBlob, "recording.webm");
+        formData.append("model", "gpt-4o-mini-transcribe"); // Whisper modeli
+
+        try {
+          const response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${process.env.REACT_APP_OPENAI_KEY}`,
+            },
+            body: formData,
+          });
+
+          const data = await response.json();
+          console.log("🎤 AI transcript:", data.text);
+
+          setTranscript(data.text);
+          evaluateAnswer(data.text);
+        } catch (err) {
+          console.error("❌ Whisper API xato:", err);
+        }
+      };
+
+      audioChunks = [];
+      mediaRecorder.start();
+      setListening(true);
+
+      // 5 soniyadan keyin yozishni to‘xtatish
+      setTimeout(() => {
+        mediaRecorder.stop();
+        setListening(false);
+      }, 5000);
+    } catch (err) {
+      console.error("❌ Mikrofon ishlamadi:", err);
+      alert("Mikrofonni yoqib berishingiz kerak.");
     }
   };
 
@@ -160,14 +158,16 @@ const ExamPage = () => {
   };
 
   if (finished) {
-    const trueCount = results.filter(r => r.correct).length;
-    const falseCount = results.filter(r => !r.correct).length;
+    const trueCount = results.filter((r) => r.correct).length;
+    const falseCount = results.filter((r) => !r.correct).length;
     const storedStars = Number(localStorage.getItem("stars") || 0);
 
     return (
       <div className="exam-root">
         <h2 className="exam-title">Exam finished 🎉</h2>
-        <p>✅ Correct: {trueCount} | ❌ Wrong: {falseCount} | ⭐ Stars: {storedStars}</p>
+        <p>
+          ✅ Correct: {trueCount} | ❌ Wrong: {falseCount} | ⭐ Stars: {storedStars}
+        </p>
         <button className="btn primary mt-6" onClick={() => navigate("/dashboard")}>
           Go to Dashboard
         </button>
@@ -182,7 +182,9 @@ const ExamPage = () => {
       <div className="exam-card">
         <div className="exam-header">
           <div className="part">Part {q?.part}</div>
-          <div className="progress">Question {index + 1} / {QUESTIONS.length}</div>
+          <div className="progress">
+            Question {index + 1} / {QUESTIONS.length}
+          </div>
           <div className="timer">⏳ {timeLeft}s</div>
         </div>
 

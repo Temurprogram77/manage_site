@@ -25,7 +25,6 @@ function App() {
           <Route path="/exam" element={<ExamPage />} />
           <Route path="/exams-history" element={<ExamHistory />} />
           <Route path="/telegram-login" element={<TelegramLogin />} />
-
         </Routes>
       </Router>
     </StarProvider>
