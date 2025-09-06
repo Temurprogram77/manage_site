@@ -23,8 +23,6 @@ function App() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/explanation" element={<Explanation />} />
           <Route path="/exam" element={<ExamPage />} />
-
-          {/* ExamHistoryPage – imtihon sahifasi istoriyasi */}
           <Route path="/exams-history" element={<ExamHistory />} />
 
           {/* TelegramLogin – Telegram orqali login sahifasi */}
