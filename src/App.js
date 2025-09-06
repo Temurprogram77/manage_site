@@ -19,8 +19,6 @@ function App() {
       <Router>
         <Routes>
           <Route path="/" element={<Landing />} />
-
-          {/* Login sahifasi */}
           <Route path="/login" element={<Login />} />
 
           {/* Dashboard sahifasi – foydalanuvchi asosiy paneli */}
