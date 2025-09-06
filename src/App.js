@@ -21,8 +21,6 @@ function App() {
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
           <Route path="/dashboard" element={<Dashboard />} />
-
-          {/* Explanation sahifasi – tushuntirish sahifasi */}
           <Route path="/explanation" element={<Explanation />} />
 
           {/* ExamPage – imtihon sahifasi */}
