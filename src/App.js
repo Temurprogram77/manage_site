@@ -24,8 +24,6 @@ function App() {
           <Route path="/explanation" element={<Explanation />} />
           <Route path="/exam" element={<ExamPage />} />
           <Route path="/exams-history" element={<ExamHistory />} />
-
-          {/* TelegramLogin – Telegram orqali login sahifasi */}
           <Route path="/telegram-login" element={<TelegramLogin />} />
 
         </Routes>
