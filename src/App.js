@@ -16,7 +16,6 @@ import ExamHistory from "./components/ExamHistory";
 function App() {
   return (
     <StarProvider>
-      {/* Router – sahifalar orasida navigatsiya qilish uchun */}
       <Router>
         {/* Routes ichida barcha sahifalar va ularning pathlarini belgilaymiz */}
         <Routes>
