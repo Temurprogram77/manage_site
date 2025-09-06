@@ -15,7 +15,6 @@ import ExamHistory from "./components/ExamHistory";
 
 function App() {
   return (
-    // StarProvider bilan barcha komponentlar kontekstga ega bo‘ladi
     <StarProvider>
       {/* Router – sahifalar orasida navigatsiya qilish uchun */}
       <Router>
