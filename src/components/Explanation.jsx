@@ -10,7 +10,7 @@ const Explanation = () => {
   };
 
   return (
-    <div className="explanation-container">
+    <div className="explanation-container md:px-0 px-4">
       <div className="explanation-card">
         <h1 className="title">⚠️ Exam Instructions</h1>
         <p className="text">

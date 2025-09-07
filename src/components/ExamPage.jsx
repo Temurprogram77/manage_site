@@ -211,7 +211,6 @@ const ExamPage = () => {
     loadQuestions();
   }, []);
 
-  // 🔥 Speaking paytida progress hisoblash (teskari yo'nalishda)
   const progress = stage === "speaking" ? (timeLeft / 30) * 283 : 0;
 
   if (stage === "finished")
@@ -239,11 +238,28 @@ const ExamPage = () => {
             </div>
           </div>
         </div>
-        <div className="w-full">
-          <p className="text-center text-[22px] font-bold">Conclusion:</p>
-          <div className="">
-            <p>1.vor gcyvwricvriy virrbvoueryv hsghasdd fdsfds</p>
-          </div>
+        <div className="flex flex-col gap-3 w-full">
+          {results.map((res, idx) => (
+            <div
+              key={res.questionId}
+              className="bg-[#ffffffcc] w-full p-3 rounded-xl shadow flex flex-col gap-2"
+            >
+              <p className="font-bold">
+                {idx + 1}. Question ID: {res.questionId}
+              </p>
+              <p>
+                <span className="font-semibold">Your answer:</span>{" "}
+                {res.answer || "No answer"}
+              </p>
+              <p>
+                <span className="font-semibold">Correct:</span>{" "}
+                {res.correct === null ? "N/A" : res.correct ? "✅" : "❌"}
+              </p>
+              <p>
+                <span className="font-semibold">Level:</span> {res.level}
+              </p>
+            </div>
+          ))}
         </div>
       </div>
     );
