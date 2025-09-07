@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import toj from "../assets/toj.png";
+import star from "../assets/star.png";
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [level, setLevel] = useState(null);
+  const [leaderboard, setLeaderboard] = useState([]);
 
   useEffect(() => {
     const storedUser = localStorage.getItem("userData");
@@ -18,6 +21,7 @@ const Dashboard = () => {
     const parsedUser = JSON.parse(storedUser);
     setUser(parsedUser);
 
+    // Dashboard ma'lumotlari
     fetch("http://167.86.121.42:8080/user/dashboard", {
       method: "GET",
       headers: {
@@ -32,20 +36,44 @@ const Dashboard = () => {
         }
       })
       .catch((err) => {
-        console.error("API error:", err);
+        console.error("Dashboard API error:", err);
+      });
+
+    // Leaderboard ma'lumotlari
+    fetch("http://167.86.121.42:8080/user/leaderBoard", {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.data)) {
+          setLeaderboard(data.data);
+
+          // Eng birinchi o'rin scoreni user.score ga set qilish
+          const firstPlace = data.data.find((p) => p.rank === 1);
+          if (firstPlace) {
+            setUser((prev) => ({ ...prev, score: firstPlace.score }));
+          }
+        }
+      })
+      .catch((err) => {
+        console.error("Leaderboard API error:", err);
       });
   }, [navigate]);
 
   return (
     <div className="min-h-screen bg-[#E6F0FA] flex justify-center py-6 px-4">
       <div className="w-full max-w-sm md:max-w-3xl lg:max-w-[75rem] space-y-4">
+        {/* Score */}
         <div className="bg-white rounded-2xl shadow p-4 flex justify-between items-center">
-          <span className="text-xl md:text-2xl font-bold">
-            {user?.score || 0}
-          </span>
+          <span className="text-xl md:text-2xl font-bold">{user?.score || 0}</span>
           <span className="text-yellow-500 text-2xl md:text-3xl">★</span>
         </div>
 
+        {/* Exams history */}
         <div
           onClick={() => navigate("/exams-history")}
           className="bg-orange-500 text-white rounded-2xl shadow p-4 md:col-span-2 cursor-pointer hover:opacity-90"
@@ -56,6 +84,7 @@ const Dashboard = () => {
           </p>
         </div>
 
+        {/* Level and Avg score */}
         <div className="grid grid-cols-2 gap-4 md:grid-cols-1">
           <div
             onClick={() => navigate("/level")}
@@ -73,6 +102,7 @@ const Dashboard = () => {
           </div>
         </div>
 
+        {/* Buttons */}
         <div className="grid md:grid-cols-2 gap-4">
           <button
             onClick={() => navigate("/explanation")}
@@ -88,6 +118,46 @@ const Dashboard = () => {
             Donation <br />
             <span className="text-sm opacity-80">Support the team</span>
           </button>
+        </div>
+
+        {/* Leaderboard */}
+        <div className="gradient w-full rounded-xl p-3 border border-black">
+          <h2 className="text-[20px] font-bold text-center mb-4">Leaderboard</h2>
+          <div className="relative rounded-xl px-[0.5px] py-[1px]">
+            <div className="absolute -top-8 -left-6">
+              <img src={toj} alt="toj" className="w-[50px]" />
+            </div>
+            {leaderboard.length > 0 ? (
+              leaderboard.map((player) => {
+                let rankColor = "bg-blue-400"; // default
+                if (player.rank === 1) rankColor = "bg-yellow-400";
+                else if (player.rank === 2) rankColor = "bg-gray-400";
+                else if (player.rank === 3) rankColor = "bg-orange-400";
+
+                return (
+                  <div
+                    key={player.id}
+                    className="flex items-center justify-between rounded-xl p-3 bg-[#ffffffbb] mb-2"
+                  >
+                    <div className="flex items-center gap-2">
+                      <div
+                        className={`rounded-full w-[30px] h-[30px] flex items-center justify-center font-bold text-white ${rankColor}`}
+                      >
+                        <p>{player.rank}</p>
+                      </div>
+                      <p>{player.fullName}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <h2>{player.score}</h2>
+                      <img src={star} className="w-[20px]" alt="star" />
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <p className="text-center text-gray-500 py-4">No data</p>
+            )}
+          </div>
         </div>
       </div>
     </div>

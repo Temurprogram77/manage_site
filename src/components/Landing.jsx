@@ -2,6 +2,7 @@ import React from "react";
 import heroImg from "../assets/hero.png";
 import logo from "../assets/logo.png";
 import { FaTelegramPlane } from "react-icons/fa"; // Telegram icon
+import { Link } from "react-router-dom";
 
 const Landing = () => {
   const handleTelegramLogin = () => {
@@ -32,6 +33,7 @@ const Landing = () => {
         <FaTelegramPlane className="text-2xl" />
         Continue with Telegram
       </button>
+      <Link to="/login" className="bg-red-600 text-white">Login</Link>
     </div>
   );
 };

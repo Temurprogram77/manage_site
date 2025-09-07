@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 const ExamHistory = () => {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -15,22 +17,19 @@ const ExamHistory = () => {
     })
       .then((res) => res.json())
       .then((data) => {
-        console.log("API javobi:", data);
-
         if (data.success && Array.isArray(data.data)) {
           setHistory(data.data);
-          console.log("Ma'lumot bor:", data.data.length > 0);
         } else {
           setHistory([]);
-          console.log("Ma'lumot yo‘q");
         }
       })
-      .catch((err) => {
-        console.error("API error:", err);
-        setHistory([]);
-      })
+      .catch(() => setHistory([]))
       .finally(() => setLoading(false));
   }, []);
+
+  const handleClick = (item) => {
+    navigate(`/exam/${item.id}`, { state: item }); 
+  };
 
   return (
     <div className="lg:max-w-[75rem] md:mx-auto mx-4">
@@ -45,7 +44,11 @@ const ExamHistory = () => {
       ) : (
         <div className="space-y-3">
           {history.map((item) => (
-            <div key={item.id} className="bg-[#BFBFBF] pb-2 rounded-xl">
+            <div
+              key={item.id}
+              onClick={() => handleClick(item)}
+              className="bg-[#BFBFBF] pb-2 rounded-xl cursor-pointer hover:shadow-lg transition"
+            >
               <div className="bg-[#FFA666] rounded-xl py-3 px-6 text-white font-semibold flex justify-between items-center">
                 <p>{item.date}</p>
                 <div className="bg-[#09B900] px-4 py-0.5 rounded-2xl">

@@ -1,37 +1,31 @@
-// src/components/ExamPage.jsx
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useStars } from "../StarContext";
 import "./ExamPage.css";
 import micro from "../assets/micro.png";
+import download from "../assets/download.png";
 
 const ExamPage = () => {
+  const [finalResult, setFinalResult] = useState(0);
+  const [finalLevel, setFinalLevel] = useState(null);
   const navigate = useNavigate();
   const { addStar } = useStars();
 
   const [questions, setQuestions] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [question, setQuestion] = useState(null);
-
-  const [stage, setStage] = useState("loading"); // "loading" | "thinking" | "speaking" | "finished"
+  const [stage, setStage] = useState("loading");
   const [timeLeft, setTimeLeft] = useState(0);
-
   const [listening, setListening] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [results, setResults] = useState([]);
 
   const recognitionRef = useRef(null);
 
-  // ✅ SpeechRecognition init
   useEffect(() => {
     const SpeechRecognition =
       window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      alert(
-        "❌ Sizning brauzeringiz ovozdan matnga o‘tkazishni qo‘llab-quvvatlamaydi"
-      );
-      return;
-    }
+    if (!SpeechRecognition) return;
 
     const recog = new SpeechRecognition();
     recog.lang = "en-US";
@@ -55,12 +49,9 @@ const ExamPage = () => {
     recognitionRef.current = recog;
   }, [stage]);
 
-  // ✅ Load questions
   const loadQuestions = async () => {
     try {
       const token = localStorage.getItem("token");
-      if (!token) return console.error("❌ Token topilmadi!");
-
       const res = await fetch(
         "http://167.86.121.42:8080/question?page=0&size=10",
         {
@@ -71,25 +62,65 @@ const ExamPage = () => {
           },
         }
       );
-      if (!res.ok) throw new Error(`❌ Savol olishda xato: ${res.status}`);
-
       const data = await res.json();
       if (data?.data?.body?.length > 0) {
         setQuestions(data.data.body);
         setQuestion(data.data.body[0]);
         setStage("thinking");
-        setTimeLeft(15); // thinking 15s
+        setTimeLeft(15);
         speakText(data.data.body[0].question);
       }
     } catch (err) {
-      console.error("❌ Savol olishda xato:", err);
+      console.error(err);
     }
   };
 
-  // ✅ Send answer
+  const finishExam = async () => {
+    setStage("finished");
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch("http://167.86.121.42:8080/api/test/finish", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await res.json();
+      if (data.success && data.percentage !== undefined) {
+        setFinalResult(data.percentage);
+      }
+      if (results.length > 0) {
+        setFinalLevel(results[results.length - 1].level || null);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const evaluateLevel = async (answer) => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(
+        "http://167.86.121.42:8080/api/test/evaluateLevel",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ text: answer }),
+        }
+      );
+      const data = await res.json();
+      return data.level;
+    } catch {
+      return null;
+    }
+  };
+
   const sendAnswer = async () => {
     if (!question) return;
-
     try {
       const token = localStorage.getItem("token");
       const res = await fetch(
@@ -104,44 +135,44 @@ const ExamPage = () => {
           },
         }
       );
-      await res.json();
+      const data = await res.json();
+      const level = await evaluateLevel(transcript);
+      setResults((prev) => [
+        ...prev,
+        {
+          questionId: question.id,
+          answer: transcript || null,
+          correct: data.correct ?? null,
+          level: level ?? "N/A",
+        },
+      ]);
     } catch (err) {
-      console.error("❌ Javob yuborishda xato:", err);
+      console.error(err);
     }
-
-    setResults((prev) => [
-      ...prev,
-      { questionId: question.id, answer: transcript || null },
-    ]);
     setTranscript("");
-
-    // Next question
     const nextIndex = currentIndex + 1;
     if (nextIndex < questions.length) {
       setCurrentIndex(nextIndex);
       const nextQ = questions[nextIndex];
       setQuestion(nextQ);
       setStage("thinking");
-      setTimeLeft(15); // next thinking
+      setTimeLeft(15);
       speakText(nextQ.question);
-    } else setStage("finished");
+    } else {
+      finishExam();
+    }
   };
 
-  // ✅ Timer for thinking and speaking
   useEffect(() => {
     if (stage === "loading" || stage === "finished" || !question) return;
-
     const timer = setInterval(() => {
       setTimeLeft((t) => t - 1);
     }, 1000);
-
     return () => clearInterval(timer);
   }, [stage, question]);
 
-  // ✅ Stage transitions
   useEffect(() => {
     if (timeLeft > 0) return;
-
     if (stage === "thinking") {
       startSpeaking();
     } else if (stage === "speaking") {
@@ -149,18 +180,15 @@ const ExamPage = () => {
     }
   }, [timeLeft, stage]);
 
-  // ✅ Microphone control
   const startSpeaking = async () => {
     if (!recognitionRef.current) return;
-
     try {
       await navigator.mediaDevices.getUserMedia({ audio: true });
       setStage("speaking");
-      setTimeLeft(30); // speaking 30s
+      setTimeLeft(30);
       recognitionRef.current.start();
       setListening(true);
-    } catch (err) {
-      console.error("❌ Mikrofon ruxsat berilmadi:", err);
+    } catch {
       alert("Mikrofonni yoqishingiz kerak!");
     }
   };
@@ -168,7 +196,7 @@ const ExamPage = () => {
   const stopSpeaking = () => {
     if (recognitionRef.current && listening) recognitionRef.current.stop();
     setListening(false);
-    sendAnswer(); // keyingi savolga o'tish
+    sendAnswer();
   };
 
   const speakText = (text) => {
@@ -183,17 +211,40 @@ const ExamPage = () => {
     loadQuestions();
   }, []);
 
+  // 🔥 Speaking paytida progress hisoblash (teskari yo'nalishda)
+  const progress = stage === "speaking" ? (timeLeft / 30) * 283 : 0;
+
   if (stage === "finished")
     return (
-      <div className="exam-root flex flex-col">
-        <h2 className="exam-title">Exam finished 🎉</h2>
-        <p>✅ Siz {results.length} ta savolga javob berdingiz.</p>
-        <button
-          className="btn primary mt-6"
-          onClick={() => navigate("/dashboard")}
-        >
-          Go to Dashboard
-        </button>
+      <div className="exam-root flex flex-col gap-4 max-w-[350px] mx-auto">
+        <h2 className="exam-title text-[30px] font-bold text-center mb-8 leading-7">
+          Result for test number: 1234
+        </h2>
+        <div className="bg-[#C0C0C0] w-full pb-2 rounded-xl">
+          <div className="bg-[#FF6A00] w-full h-full px-7 pb-2 pt-3 rounded-xl flex items-center justify-between text-white font-bold">
+            <p className="text-[25px]">Overal: </p>
+            <h2 className="text-[45px]">52</h2>
+          </div>
+        </div>
+        <div className="flex justify-between w-full">
+          <div className="bg-[#C0C0C0] pb-2 rounded-xl">
+            <div className="bg-[#FFE100] h-full px-7 pb-2 pt-3 text-[45px] rounded-xl flex items-center text-white font-bold">
+              B2
+            </div>
+          </div>
+          <div className="bg-[#C0C0C0] pb-2 rounded-xl">
+            <div className="bg-[#00B3FF] px-7 pb-2 pt-3 text-[22px] rounded-xl flex flex-col items-center text-white font-bold">
+              <img src={download} alt="download" className="w-[40px]" />
+              <p>Download</p>
+            </div>
+          </div>
+        </div>
+        <div className="w-full">
+          <p className="text-center text-[22px] font-bold">Conclusion:</p>
+          <div className="">
+            <p>1.vor gcyvwricvriy virrbvoueryv hsghasdd fdsfds</p>
+          </div>
+        </div>
       </div>
     );
 
@@ -202,13 +253,20 @@ const ExamPage = () => {
   return (
     <div className="exam-root">
       <div className="exam-card">
-        <div className="exam-header">
-          <div className="part">Category ID: {question.categoryId}</div>
-          <div className="progress">Question ID: {question.id}</div>
-          <div className="timer">⏳ {timeLeft > 0 ? `${timeLeft}s` : ""}</div>
+        <div className="exam-header mb-3 flex w-full justify-between">
+          <div className="w-[5%]"></div>
+          <div className="part">
+            Category: {question.categoryName} | Page: {currentIndex + 1}
+          </div>
+          <div className="part">1.1</div>
         </div>
 
-        <div className="question-area">
+        <div className="question-area relative">
+          <div className="top-6 bg-[#e65c00] w-fit flex justify-center text-white px-3 rounded-xl absolute">
+            <div className="w-fit">
+              {stage === "thinking" && timeLeft > 0 ? `${timeLeft}s` : "Start talking."}
+            </div>
+          </div>
           <div className="question-text">{question.question}</div>
         </div>
 
@@ -225,9 +283,20 @@ const ExamPage = () => {
           <button
             className={`mic-btn ${listening ? "listening" : ""}`}
             disabled
-            aria-label="Mic is automatic"
           >
-            <img src={micro} alt="" />
+            <svg width="90" height="90">
+              <circle className="bg" cx="45" cy="45" r="40" />
+              {stage === "speaking" && (
+                <circle
+                  className="progress"
+                  cx="45"
+                  cy="45"
+                  r="40"
+                  style={{ strokeDashoffset: 283 - progress }}
+                />
+              )}
+            </svg>
+            <img src={micro} alt="mic" />
           </button>
         </div>
 
