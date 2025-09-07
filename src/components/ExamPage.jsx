@@ -5,148 +5,176 @@ import { useStars } from "../StarContext";
 import "./ExamPage.css";
 import micro from "../assets/micro.png";
 
-const QUESTIONS = [
-  { id: 1, part: 1, number: 1, text: "What is the capital of France?", answer: "paris" },
-  { id: 2, part: 1, number: 2, text: "Say your first name.", answer: "" }, // free text
-  { id: 3, part: 1, number: 3, text: "What is 2 plus 2?", answer: "4" },
-];
-
-const TIME_PER_QUESTION = 15; // 15 soniya
-
 const ExamPage = () => {
   const navigate = useNavigate();
   const { addStar } = useStars();
-  const [index, setIndex] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(TIME_PER_QUESTION);
+
+  const [questions, setQuestions] = useState([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [question, setQuestion] = useState(null);
+
+  const [stage, setStage] = useState("loading"); // "loading" | "thinking" | "waiting" | "speaking" | "finished"
+  const [timeLeft, setTimeLeft] = useState(0);
+
   const [listening, setListening] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [results, setResults] = useState([]);
-  const [finished, setFinished] = useState(false);
+
+  const recognitionRef = useRef(null);
   const timerRef = useRef(null);
 
-  // Timer + TTS
+  // ✅ SpeechRecognition init
   useEffect(() => {
-    if (finished || !QUESTIONS[index]) return;
-
-    setTimeLeft(TIME_PER_QUESTION);
-
-    speakText(QUESTIONS[index].text);
-
-    clearInterval(timerRef.current);
-    timerRef.current = setInterval(() => setTimeLeft((t) => t - 1), 1000);
-
-    return () => clearInterval(timerRef.current);
-  }, [index, finished]);
-
-  // Auto evaluate when time is up
-  useEffect(() => {
-    if (timeLeft <= 0 && !finished && QUESTIONS[index]) evaluateAnswer("");
-  }, [timeLeft, finished, index]);
-
-  // Javobni tekshirish va API'ga yuborish
-  const evaluateAnswer = (userText) => {
-    if (finished || !QUESTIONS[index]) return;
-
-    const q = QUESTIONS[index];
-    const normalizedUser = (userText || "").toString().trim().toLowerCase();
-    const correctAnswer = (q.answer || "").toString().trim().toLowerCase();
-
-    let isCorrect = false;
-    if (correctAnswer === "") {
-      isCorrect = normalizedUser.length > 0;
-    } else {
-      isCorrect = normalizedUser === correctAnswer;
+    const SpeechRecognition =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert("❌ Sizning brauzeringiz ovozdan matnga o‘tkazishni qo‘llab-quvvatlamaydi");
+      return;
     }
+    const recog = new SpeechRecognition();
+    recog.lang = "en-US";
+    recog.interimResults = false;
+    recog.continuous = false;
 
-    setResults((prev) => [
-      ...prev,
-      { questionId: q.id, correct: isCorrect, answer: normalizedUser },
-    ]);
-    if (isCorrect) addStar();
+    recog.onresult = (e) => {
+      const text = Array.from(e.results)
+        .map((r) => r[0].transcript)
+        .join(" ")
+        .trim();
+      setTranscript(text);
+    };
+    recog.onerror = () => setListening(false);
+    recog.onend = () => {
+      setListening(false);
+      if (stage === "speaking") {
+        sendAnswer();
+      }
+    };
 
-    // 🔹 Javobni API'ga yuborish
-    const token = localStorage.getItem("token");
-    fetch("http://167.86.121.42:8080/api/test/startTest", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: token ? `Bearer ${token}` : "",
-      },
-      body: JSON.stringify({
-        questionId: q.id,
-        answer: normalizedUser || null,
-      }),
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        console.log("✅ Answer API javobi:", data);
-      })
-      .catch((err) => {
-        console.error("❌ Answer API xato:", err);
+    recognitionRef.current = recog;
+  }, [stage]);
+
+  // ✅ Savollarni API'dan olib kelish
+  const loadQuestions = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        console.error("❌ Token topilmadi, avval login qiling!");
+        return;
+      }
+
+      const res = await fetch("http://167.86.121.42:8080/question?page=0&size=10", {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
       });
 
-    clearInterval(timerRef.current);
+      if (!res.ok) throw new Error(`❌ Savol olishda xato: ${res.status}`);
 
-    setTimeout(() => {
-      if (index + 1 < QUESTIONS.length) {
-        setIndex((i) => i + 1);
-        setTranscript("");
-        setTimeLeft(TIME_PER_QUESTION);
-      } else {
-        setFinished(true);
+      const data = await res.json();
+      console.log("✅ Questions API:", data);
+
+      if (data?.data?.body?.length > 0) {
+        setQuestions(data.data.body);
+        setQuestion(data.data.body[0]);
+        setStage("thinking");
+        setTimeLeft(5); // 5 soniya thinking
+        speakText(data.data.body[0].question);
       }
-    }, 900);
+    } catch (err) {
+      console.error("❌ Savol olishda xato:", err);
+    }
   };
 
-  // 🔹 Mikrofonni bosganda yozib olish va OpenAI Whisper API'ga yuborish
-  const startListening = async () => {
+  // ✅ Javobni yuborish
+  const sendAnswer = async () => {
+    if (!question) return;
+
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
-      let audioChunks = [];
-
-      mediaRecorder.ondataavailable = (event) => {
-        audioChunks.push(event.data);
-      };
-
-      mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
-        const formData = new FormData();
-        formData.append("file", audioBlob, "recording.webm");
-        formData.append("model", "gpt-4o-mini-transcribe"); // Whisper modeli
-
-        try {
-          const response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${process.env.REACT_APP_OPENAI_KEY}`,
-            },
-            body: formData,
-          });
-
-          const data = await response.json();
-          console.log("🎤 AI transcript:", data.text);
-
-          setTranscript(data.text);
-          evaluateAnswer(data.text);
-        } catch (err) {
-          console.error("❌ Whisper API xato:", err);
+      const token = localStorage.getItem("token");
+      const res = await fetch(
+        `http://167.86.121.42:8080/api/test/startTest?questionId=${question.id}&answer=${encodeURIComponent(transcript || "")}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
         }
-      };
-
-      audioChunks = [];
-      mediaRecorder.start();
-      setListening(true);
-
-      // 5 soniyadan keyin yozishni to‘xtatish
-      setTimeout(() => {
-        mediaRecorder.stop();
-        setListening(false);
-      }, 5000);
+      );
+      const data = await res.json();
+      console.log("✅ Answer response:", data);
     } catch (err) {
-      console.error("❌ Mikrofon ishlamadi:", err);
-      alert("Mikrofonni yoqib berishingiz kerak.");
+      console.error("❌ Javob yuborishda xato:", err);
     }
+
+    setResults((prev) => [...prev, { questionId: question.id, answer: transcript || null }]);
+    setTranscript("");
+
+    const nextIndex = currentIndex + 1;
+    if (nextIndex < questions.length) {
+      setCurrentIndex(nextIndex);
+      const nextQ = questions[nextIndex];
+      setQuestion(nextQ);
+      setStage("thinking");
+      setTimeLeft(5);
+      speakText(nextQ.question);
+    } else {
+      setStage("finished");
+    }
+  };
+
+  // ✅ Timer boshqaruvi
+  useEffect(() => {
+    if (!question || stage === "loading" || stage === "finished") return;
+
+    clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => {
+      setTimeLeft((t) => t - 1);
+    }, 1000);
+
+    return () => clearInterval(timerRef.current);
+  }, [stage, question]);
+
+  // ✅ Timer tugaganda stage o‘zgartirish
+  useEffect(() => {
+    if (!question || stage === "loading" || stage === "finished") return;
+
+    if (timeLeft <= 0) {
+      if (stage === "thinking") {
+        setStage("waiting");
+        setTimeLeft(0);
+      } else if (stage === "speaking") {
+        stopListening(); // mikrofonni o‘chirish
+      }
+    }
+  }, [timeLeft, stage, question]);
+
+  // ✅ Mikrofon boshqaruvi
+  const startListening = async () => {
+    if (!recognitionRef.current || stage !== "waiting") return;
+
+    try {
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+      setStage("speaking");
+      setTimeLeft(30);
+
+      clearInterval(timerRef.current);
+      timerRef.current = setInterval(() => setTimeLeft((t) => t - 1), 1000);
+
+      recognitionRef.current.start();
+      setListening(true);
+    } catch (err) {
+      console.error("❌ Mikrofon ruxsat berilmadi:", err);
+      alert("Mikrofonni yoqishingiz kerak!");
+    }
+  };
+
+  const stopListening = () => {
+    if (recognitionRef.current && listening) recognitionRef.current.stop();
+    setListening(false);
   };
 
   const speakText = (text) => {
@@ -157,17 +185,15 @@ const ExamPage = () => {
     window.speechSynthesis.speak(u);
   };
 
-  if (finished) {
-    const trueCount = results.filter((r) => r.correct).length;
-    const falseCount = results.filter((r) => !r.correct).length;
-    const storedStars = Number(localStorage.getItem("stars") || 0);
+  useEffect(() => {
+    loadQuestions();
+  }, []);
 
+  if (stage === "finished") {
     return (
       <div className="exam-root">
         <h2 className="exam-title">Exam finished 🎉</h2>
-        <p>
-          ✅ Correct: {trueCount} | ❌ Wrong: {falseCount} | ⭐ Stars: {storedStars}
-        </p>
+        <p>✅ Siz {results.length} ta savolga javob berdingiz.</p>
         <button className="btn primary mt-6" onClick={() => navigate("/dashboard")}>
           Go to Dashboard
         </button>
@@ -175,21 +201,19 @@ const ExamPage = () => {
     );
   }
 
-  const q = QUESTIONS[index];
+  if (!question) return <div className="exam-root">⏳ Loading question...</div>;
 
   return (
     <div className="exam-root">
       <div className="exam-card">
         <div className="exam-header">
-          <div className="part">Part {q?.part}</div>
-          <div className="progress">
-            Question {index + 1} / {QUESTIONS.length}
-          </div>
-          <div className="timer">⏳ {timeLeft}s</div>
+          <div className="part">Category ID: {question.categoryId}</div>
+          <div className="progress">Question ID: {question.id}</div>
+          <div className="timer">⏳ {timeLeft > 0 ? `${timeLeft}s` : ""}</div>
         </div>
 
         <div className="question-area">
-          <div className="question-text">{q?.text}</div>
+          <div className="question-text">{question.question}</div>
         </div>
 
         <div className="transcript-area">
@@ -202,11 +226,18 @@ const ExamPage = () => {
         <div className="controls">
           <button
             className={`mic-btn ${listening ? "listening" : ""}`}
+            disabled={stage !== "waiting"}
             onClick={startListening}
             aria-label="Start recording"
           >
             <img src={micro} alt="" />
           </button>
+        </div>
+
+        <div className="phase-info">
+          {stage === "thinking" && <p>🤔 Thinking time...</p>}
+          {stage === "waiting" && <p>⏳ Press mic to start speaking</p>}
+          {stage === "speaking" && <p>🎤 Speak now...</p>}
         </div>
       </div>
     </div>
