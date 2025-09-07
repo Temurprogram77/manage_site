@@ -6,7 +6,7 @@ const ExamDetail = () => {
   const { state } = useLocation();
 
   return (
-    <div className="max-w-xl mx-auto mt-10 p-6 bg-white shadow-md rounded-xl">
+    <div className="max-w-xl md:mx-auto mt-10 p-6 mx-4 bg-[#FFA666] border-4 border-[#09B900] shadow-md rounded-xl">
       <h2 className="text-2xl font-bold text-center mb-4">Exam Detail</h2>
 
       {state ? (
@@ -15,10 +15,10 @@ const ExamDetail = () => {
             <span className="font-semibold">ID:</span> {id}
           </p>
           <p>
-            <span className="font-semibold">Sana:</span> {state.date}
+            <span className="font-semibold">Date:</span> {state.date}
           </p>
           <p>
-            <span className="font-semibold">Foiz:</span> {state.percentage}%
+            <span className="font-semibold">Percent:</span> {state.percentage}%
           </p>
         </div>
       ) : (
