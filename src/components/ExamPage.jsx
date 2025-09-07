@@ -13,7 +13,7 @@ const ExamPage = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [question, setQuestion] = useState(null);
 
-  const [stage, setStage] = useState("loading"); // "loading" | "thinking" | "waiting" | "speaking" | "finished"
+  const [stage, setStage] = useState("loading"); // "loading" | "thinking" | "speaking" | "finished"
   const [timeLeft, setTimeLeft] = useState(0);
 
   const [listening, setListening] = useState(false);
@@ -21,16 +21,18 @@ const ExamPage = () => {
   const [results, setResults] = useState([]);
 
   const recognitionRef = useRef(null);
-  const timerRef = useRef(null);
 
   // ✅ SpeechRecognition init
   useEffect(() => {
     const SpeechRecognition =
       window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      alert("❌ Sizning brauzeringiz ovozdan matnga o‘tkazishni qo‘llab-quvvatlamaydi");
+      alert(
+        "❌ Sizning brauzeringiz ovozdan matnga o‘tkazishni qo‘llab-quvvatlamaydi"
+      );
       return;
     }
+
     const recog = new SpeechRecognition();
     recog.lang = "en-US";
     recog.interimResults = false;
@@ -43,44 +45,40 @@ const ExamPage = () => {
         .trim();
       setTranscript(text);
     };
+
     recog.onerror = () => setListening(false);
     recog.onend = () => {
       setListening(false);
-      if (stage === "speaking") {
-        sendAnswer();
-      }
+      if (stage === "speaking") sendAnswer();
     };
 
     recognitionRef.current = recog;
   }, [stage]);
 
-  // ✅ Savollarni API'dan olib kelish
+  // ✅ Load questions
   const loadQuestions = async () => {
     try {
       const token = localStorage.getItem("token");
-      if (!token) {
-        console.error("❌ Token topilmadi, avval login qiling!");
-        return;
-      }
+      if (!token) return console.error("❌ Token topilmadi!");
 
-      const res = await fetch("http://167.86.121.42:8080/question?page=0&size=10", {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
+      const res = await fetch(
+        "http://167.86.121.42:8080/question?page=0&size=10",
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
       if (!res.ok) throw new Error(`❌ Savol olishda xato: ${res.status}`);
 
       const data = await res.json();
-      console.log("✅ Questions API:", data);
-
       if (data?.data?.body?.length > 0) {
         setQuestions(data.data.body);
         setQuestion(data.data.body[0]);
         setStage("thinking");
-        setTimeLeft(5); // 5 soniya thinking
+        setTimeLeft(15); // thinking 15s
         speakText(data.data.body[0].question);
       }
     } catch (err) {
@@ -88,14 +86,16 @@ const ExamPage = () => {
     }
   };
 
-  // ✅ Javobni yuborish
+  // ✅ Send answer
   const sendAnswer = async () => {
     if (!question) return;
 
     try {
       const token = localStorage.getItem("token");
       const res = await fetch(
-        `http://167.86.121.42:8080/api/test/startTest?questionId=${question.id}&answer=${encodeURIComponent(transcript || "")}`,
+        `http://167.86.121.42:8080/api/test/startTest?questionId=${
+          question.id
+        }&answer=${encodeURIComponent(transcript || "")}`,
         {
           method: "POST",
           headers: {
@@ -104,66 +104,59 @@ const ExamPage = () => {
           },
         }
       );
-      const data = await res.json();
-      console.log("✅ Answer response:", data);
+      await res.json();
     } catch (err) {
       console.error("❌ Javob yuborishda xato:", err);
     }
 
-    setResults((prev) => [...prev, { questionId: question.id, answer: transcript || null }]);
+    setResults((prev) => [
+      ...prev,
+      { questionId: question.id, answer: transcript || null },
+    ]);
     setTranscript("");
 
+    // Next question
     const nextIndex = currentIndex + 1;
     if (nextIndex < questions.length) {
       setCurrentIndex(nextIndex);
       const nextQ = questions[nextIndex];
       setQuestion(nextQ);
       setStage("thinking");
-      setTimeLeft(5);
+      setTimeLeft(15); // next thinking
       speakText(nextQ.question);
-    } else {
-      setStage("finished");
-    }
+    } else setStage("finished");
   };
 
-  // ✅ Timer boshqaruvi
+  // ✅ Timer for thinking and speaking
   useEffect(() => {
-    if (!question || stage === "loading" || stage === "finished") return;
+    if (stage === "loading" || stage === "finished" || !question) return;
 
-    clearInterval(timerRef.current);
-    timerRef.current = setInterval(() => {
+    const timer = setInterval(() => {
       setTimeLeft((t) => t - 1);
     }, 1000);
 
-    return () => clearInterval(timerRef.current);
+    return () => clearInterval(timer);
   }, [stage, question]);
 
-  // ✅ Timer tugaganda stage o‘zgartirish
+  // ✅ Stage transitions
   useEffect(() => {
-    if (!question || stage === "loading" || stage === "finished") return;
+    if (timeLeft > 0) return;
 
-    if (timeLeft <= 0) {
-      if (stage === "thinking") {
-        setStage("waiting");
-        setTimeLeft(0);
-      } else if (stage === "speaking") {
-        stopListening(); // mikrofonni o‘chirish
-      }
+    if (stage === "thinking") {
+      startSpeaking();
+    } else if (stage === "speaking") {
+      stopSpeaking();
     }
-  }, [timeLeft, stage, question]);
+  }, [timeLeft, stage]);
 
-  // ✅ Mikrofon boshqaruvi
-  const startListening = async () => {
-    if (!recognitionRef.current || stage !== "waiting") return;
+  // ✅ Microphone control
+  const startSpeaking = async () => {
+    if (!recognitionRef.current) return;
 
     try {
       await navigator.mediaDevices.getUserMedia({ audio: true });
       setStage("speaking");
-      setTimeLeft(30);
-
-      clearInterval(timerRef.current);
-      timerRef.current = setInterval(() => setTimeLeft((t) => t - 1), 1000);
-
+      setTimeLeft(30); // speaking 30s
       recognitionRef.current.start();
       setListening(true);
     } catch (err) {
@@ -172,9 +165,10 @@ const ExamPage = () => {
     }
   };
 
-  const stopListening = () => {
+  const stopSpeaking = () => {
     if (recognitionRef.current && listening) recognitionRef.current.stop();
     setListening(false);
+    sendAnswer(); // keyingi savolga o'tish
   };
 
   const speakText = (text) => {
@@ -189,17 +183,19 @@ const ExamPage = () => {
     loadQuestions();
   }, []);
 
-  if (stage === "finished") {
+  if (stage === "finished")
     return (
-      <div className="exam-root">
+      <div className="exam-root flex flex-col">
         <h2 className="exam-title">Exam finished 🎉</h2>
         <p>✅ Siz {results.length} ta savolga javob berdingiz.</p>
-        <button className="btn primary mt-6" onClick={() => navigate("/dashboard")}>
+        <button
+          className="btn primary mt-6"
+          onClick={() => navigate("/dashboard")}
+        >
           Go to Dashboard
         </button>
       </div>
     );
-  }
 
   if (!question) return <div className="exam-root">⏳ Loading question...</div>;
 
@@ -219,16 +215,17 @@ const ExamPage = () => {
         <div className="transcript-area">
           <div className="transcript-label">Your answer</div>
           <div className="transcript-box">
-            {transcript || <span className="muted">Speak using the mic below...</span>}
+            {transcript || (
+              <span className="muted">Speak using the mic...</span>
+            )}
           </div>
         </div>
 
         <div className="controls">
           <button
             className={`mic-btn ${listening ? "listening" : ""}`}
-            disabled={stage !== "waiting"}
-            onClick={startListening}
-            aria-label="Start recording"
+            disabled
+            aria-label="Mic is automatic"
           >
             <img src={micro} alt="" />
           </button>
@@ -236,7 +233,6 @@ const ExamPage = () => {
 
         <div className="phase-info">
           {stage === "thinking" && <p>🤔 Thinking time...</p>}
-          {stage === "waiting" && <p>⏳ Press mic to start speaking</p>}
           {stage === "speaking" && <p>🎤 Speak now...</p>}
         </div>
       </div>
