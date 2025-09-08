@@ -33,7 +33,6 @@ const Landing = () => {
         <FaTelegramPlane className="text-2xl" />
         Continue with Telegram
       </button>
-      <Link to="/login" className="bg-red-600 text-white">Login</Link>
     </div>
   );
 };
