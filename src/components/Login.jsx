@@ -1,13 +1,18 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
-const Login = () => {
+const Login = ({ chatId }) => {
+  // <-- chatId prop sifatida olinadi
   const navigate = useNavigate();
+  const location = useLocation();
+  const chatIdFromTelegram = location.state?.chatId || ""; // Telegramdan kelgan chatId
+
   const [formData, setFormData] = useState({
     fullname: "",
     phone: "",
     region: "",
     city: "",
+    chatId: chatIdFromTelegram, // <-- avtomatik to'ldiriladi
   });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
@@ -38,7 +43,7 @@ const Login = () => {
       setLoading(true);
 
       const payload = {
-        chatId: "123456789",
+        chatId: chatId || "123456789",
         fullName: formData.fullname,
         region: formData.region,
         city: formData.city,
@@ -46,7 +51,7 @@ const Login = () => {
         imageUrl: "https://picsum.photos/200",
       };
 
-      const res = await fetch("http://167.86.121.42:8080/auth/user/login", {
+      const res = await fetch("https://167.86.121.42:8080/auth/user/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -67,17 +72,13 @@ const Login = () => {
 
       if (data.data) {
         localStorage.setItem("token", data.data);
-        console.log("📌 Token saqlandi:", data.data);
-      }
-
-      if (data.data) {
         localStorage.setItem("userData", JSON.stringify(data.data));
+        console.log("📌 Token saqlandi:", data.data);
       }
 
       navigate("/dashboard");
     } catch (error) {
       console.error("Xatolik:", error);
-      alert("Kirishda xatolik yuz berdi!");
     } finally {
       setLoading(false);
     }
@@ -87,6 +88,7 @@ const Login = () => {
     <div className="min-h-screen flex items-center justify-center bg-gray-100 md:px-0 px-4">
       <div className="bg-white p-8 rounded-2xl shadow-md w-full max-w-md space-y-5">
         <h2 className="text-2xl font-bold text-center text-gray-800">Login</h2>
+
         <div>
           <input
             type="text"
@@ -102,6 +104,7 @@ const Login = () => {
             <p className="text-red-500 text-sm mt-1">{errors.fullname}</p>
           )}
         </div>
+
         <div>
           <input
             type="text"
@@ -117,6 +120,7 @@ const Login = () => {
             <p className="text-red-500 text-sm mt-1">{errors.phone}</p>
           )}
         </div>
+
         <div>
           <input
             type="text"
@@ -132,6 +136,7 @@ const Login = () => {
             <p className="text-red-500 text-sm mt-1">{errors.region}</p>
           )}
         </div>
+
         <div>
           <input
             type="text"
@@ -147,6 +152,7 @@ const Login = () => {
             <p className="text-red-500 text-sm mt-1">{errors.city}</p>
           )}
         </div>
+
         <button
           onClick={handleSubmit}
           disabled={loading}

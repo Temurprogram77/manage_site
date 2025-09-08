@@ -6,8 +6,7 @@ import { Link } from "react-router-dom";
 
 const Landing = () => {
   const handleTelegramLogin = () => {
-    // To'g'ridan-to'g'ri Telegram bot login URL'iga yo'naltirish
-    window.location.href = "https://t.me/testnimadir2_bot";
+    window.location.href = "/telegram-login";
   };
 
   return (
