@@ -8,24 +8,41 @@ const ExamHistory = () => {
 
   useEffect(() => {
     const token = localStorage.getItem("token");
-    fetch("http://167.86.121.42:8080/api/test", {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: token ? `Bearer ${token}` : "",
-      },
-    })
-      .then((res) => res.json())
-      .then((data) => {
+    const storedUser = localStorage.getItem("userData");
+
+    // Foydalanuvchi login qilmagan bo'lsa login sahifaga yo'naltirish
+    if (!token || !storedUser) {
+      navigate("/login");
+      return;
+    }
+
+    // Serverga tokenni tekshirish
+    const fetchHistory = async () => {
+      try {
+        const res = await fetch("http://167.86.121.42:8080/api/test", {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        const data = await res.json();
+
         if (data.success && Array.isArray(data.data)) {
           setHistory(data.data);
         } else {
           setHistory([]);
         }
-      })
-      .catch(() => setHistory([]))
-      .finally(() => setLoading(false));
-  }, []);
+      } catch (err) {
+        console.error("API error:", err);
+        setHistory([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchHistory();
+  }, [navigate]);
 
   const handleClick = (item) => {
     navigate(`/exam/${item.id}`, { state: item }); 

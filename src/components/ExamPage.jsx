@@ -27,13 +27,16 @@ const ExamPage = () => {
     const q = questionText.toLowerCase();
     const a = answerText.toLowerCase();
 
-    if (q.includes("hello") && a.includes("hello")) return { correct: true, level: "B1" };
-    if (q.includes("your name") && a.includes("temur")) return { correct: true, level: "B2" };
+    if (q.includes("hello") && a.includes("hello"))
+      return { correct: true, level: "B1" };
+    if (q.includes("your name") && a.includes("temur"))
+      return { correct: true, level: "B2" };
     return { correct: false, level: "A2" };
   };
 
   useEffect(() => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const SpeechRecognition =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) return;
 
     const recog = new SpeechRecognition();
@@ -52,18 +55,37 @@ const ExamPage = () => {
     recog.onerror = () => setListening(false);
 
     recognitionRef.current = recog;
+
+    // cleanup faqat stop qilinadi
+    return () => {
+      if (recognitionRef.current && recognitionRef.current.stop) {
+        recognitionRef.current.stop();
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    const storedUser = localStorage.getItem("userData");
+    const token = localStorage.getItem("token");
+
+    if (!storedUser || !token) {
+      navigate("/login");
+    }
   }, []);
 
   const loadQuestions = async () => {
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch("http://167.86.121.42:8080/question?page=0&size=10", {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const res = await fetch(
+        "http://167.86.121.42:8080/question?page=0&size=10",
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
       const data = await res.json();
       if (data?.data?.body?.length > 0) {
         setQuestions(data.data.body);
@@ -79,13 +101,17 @@ const ExamPage = () => {
 
   const finishExam = () => {
     setStage("finished");
-    if (results.length > 0) setFinalLevel(results[results.length - 1].level || null);
+    if (results.length > 0)
+      setFinalLevel(results[results.length - 1].level || null);
   };
 
   const sendAnswer = () => {
     if (!question) return;
 
-    const { correct, level } = evaluateAnswerLocally(question.question, transcript);
+    const { correct, level } = evaluateAnswerLocally(
+      question.question,
+      transcript
+    );
 
     setResults((prev) => [
       ...prev,
@@ -187,13 +213,20 @@ const ExamPage = () => {
         </div>
         <div className="flex flex-col gap-3 w-full">
           {results.map((res, idx) => (
-            <div key={res.questionId + idx} className="bg-[#ffffffcc] w-full p-3 rounded-xl shadow flex flex-col gap-2">
-              <p className="font-bold">{idx + 1}. Question ID: {res.questionId}</p>
-              <p>
-                <span className="font-semibold">Your answer:</span> {res.answer || "No answer"}
+            <div
+              key={res.questionId + idx}
+              className="bg-[#ffffffcc] w-full p-3 rounded-xl shadow flex flex-col gap-2"
+            >
+              <p className="font-bold">
+                {idx + 1}. Question ID: {res.questionId}
               </p>
               <p>
-                <span className="font-semibold">Correct:</span> {res.correct ? "✅" : "❌"}
+                <span className="font-semibold">Your answer:</span>{" "}
+                {res.answer || "No answer"}
+              </p>
+              <p>
+                <span className="font-semibold">Correct:</span>{" "}
+                {res.correct ? "✅" : "❌"}
               </p>
               <p>
                 <span className="font-semibold">Level:</span> {res.level}
@@ -210,7 +243,7 @@ const ExamPage = () => {
     <div className="exam-root">
       <div className="exam-card">
         <div className="exam-header mb-3 flex w-full justify-between">
-          <div className="w-[5%]"></div>
+          <div className="w-[7.5%]"></div>
           <div className="part">
             Category: {question.categoryName} | Page: {currentIndex + 1}
           </div>
@@ -219,11 +252,19 @@ const ExamPage = () => {
 
         <div className="question-area relative">
           <div className="top-6 bg-[#e65c00] w-fit flex justify-center text-white px-3 rounded-xl absolute">
-            <div className="w-fit">{stage === "thinking" && timeLeft > 0 ? `${timeLeft}s` : "Start talking."}</div>
+            <div className="w-fit">
+              {stage === "thinking" && timeLeft > 0
+                ? `${timeLeft}s`
+                : "Start talking."}
+            </div>
           </div>
 
           {question.image && (
-            <img src={question.image} alt="Question visual" className="w-full max-w-md mx-auto mb-4 rounded-xl" />
+            <img
+              src={question.image}
+              alt="Question visual"
+              className="w-full max-w-md mx-auto mb-4 rounded-xl"
+            />
           )}
 
           <div className="question-text">{question.question}</div>
@@ -231,14 +272,29 @@ const ExamPage = () => {
 
         <div className="transcript-area">
           <div className="transcript-label">Your answer</div>
-          <div className="transcript-box">{transcript || <span className="muted">Speak using the mic...</span>}</div>
+          <div className="transcript-box">
+            {transcript || (
+              <span className="muted">Speak using the mic...</span>
+            )}
+          </div>
         </div>
 
         <div className="controls">
-          <button className={`mic-btn ${listening ? "listening" : ""}`} disabled>
+          <button
+            className={`mic-btn ${listening ? "listening" : ""}`}
+            disabled
+          >
             <svg width="90" height="90">
               <circle className="bg" cx="45" cy="45" r="40" />
-              {stage === "speaking" && <circle className="progress" cx="45" cy="45" r="40" style={{ strokeDashoffset: 283 - progress }} />}
+              {stage === "speaking" && (
+                <circle
+                  className="progress"
+                  cx="45"
+                  cy="45"
+                  r="40"
+                  style={{ strokeDashoffset: 283 - progress }}
+                />
+              )}
             </svg>
             <img src={micro} alt="mic" />
           </button>
