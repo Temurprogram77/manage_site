@@ -272,7 +272,7 @@ const ExamPage = () => {
               </p>
               <p>
                 <span className="font-semibold">Correct:</span>{" "}
-                {res.correct ? "✅" : "❌"}
+                {res.correct ? "✅" : "❌ Wrong"}
               </p>
               <p>
                 <span className="font-semibold">Level:</span> {res.level}
