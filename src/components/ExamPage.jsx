@@ -28,16 +28,13 @@ const ExamPage = () => {
     const q = questionText.toLowerCase();
     const a = answerText.toLowerCase();
 
-    // Oddiy misol baholash
     if (q.includes("hello") && a.includes("hello")) return { correct: true, level: "B1" };
     if (q.includes("your name") && a.includes("temur")) return { correct: true, level: "B2" };
-    // Default
     return { correct: false, level: "A2" };
   };
 
   useEffect(() => {
-    const SpeechRecognition =
-      window.SpeechRecognition || window.webkitSpeechRecognition;
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) return;
 
     const recog = new SpeechRecognition();
@@ -98,7 +95,6 @@ const ExamPage = () => {
   const sendAnswer = () => {
     if (!question) return;
 
-    // --- AI baholash ---
     const { correct, level } = evaluateAnswerLocally(question.question, transcript);
 
     setResults((prev) => [
@@ -172,6 +168,7 @@ const ExamPage = () => {
 
   const progress = stage === "speaking" ? (timeLeft / 30) * 283 : 0;
 
+  // --- Natijalar sahifasi ---
   if (stage === "finished")
     return (
       <div className="exam-root flex flex-col gap-4 max-w-[350px] mx-auto">
@@ -207,12 +204,10 @@ const ExamPage = () => {
                 {idx + 1}. Question ID: {res.questionId}
               </p>
               <p>
-                <span className="font-semibold">Your answer:</span>{" "}
-                {res.answer || "No answer"}
+                <span className="font-semibold">Your answer:</span> {res.answer || "No answer"}
               </p>
               <p>
-                <span className="font-semibold">Correct:</span>{" "}
-                {res.correct === null ? "N/A" : res.correct ? "✅" : "❌"}
+                <span className="font-semibold">Correct:</span> {res.correct === null ? "N/A" : res.correct ? "✅" : "❌"}
               </p>
               <p>
                 <span className="font-semibold">Level:</span> {res.level}
@@ -242,6 +237,15 @@ const ExamPage = () => {
               {stage === "thinking" && timeLeft > 0 ? `${timeLeft}s` : "Start talking."}
             </div>
           </div>
+
+          {question.image && (
+            <img
+              src={question.image}
+              alt="Question visual"
+              className="w-full max-w-md mx-auto mb-4 rounded-xl"
+            />
+          )}
+
           <div className="question-text">{question.question}</div>
         </div>
 
