@@ -17,7 +17,7 @@ export default function TelegramLogin() {
           <script
             async
             src="https://telegram.org/js/telegram-widget.js?22"
-            data-telegram-login="managelc_bot"
+            data-telegram-login="testnimadir2_bot"
             data-size="large" 
             data-userpic="true"
             data-onauth="onTelegramAuth(user)"
