@@ -50,7 +50,6 @@ const ExamDetail = () => {
 
   return (
     <div className="max-w-xl md:mx-auto mt-10 p-6 mx-4 rounded-xl">
-
       {state ? (
         <div className="exam-root flex flex-col gap-4 max-w-[350px] mx-auto">
           <h2 className="exam-title text-[30px] font-bold text-center mb-8 leading-7">
