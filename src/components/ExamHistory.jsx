@@ -45,7 +45,7 @@ const ExamHistory = () => {
   }, [navigate]);
 
   const handleClick = (item) => {
-    navigate(`/exam/${item.id}`, { state: item }); 
+    navigate(`/exam/${item.id}`, { state: item });
   };
 
   return (
