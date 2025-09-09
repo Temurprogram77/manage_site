@@ -146,7 +146,9 @@ const Dashboard = () => {
 
         {/* Leaderboard */}
         <div className="gradient w-full rounded-xl p-3 border border-black">
-          <h2 className="text-[20px] font-bold text-center mb-4">Leaderboard</h2>
+          <h2 className="text-[20px] font-bold text-center mb-4">
+            Leaderboard
+          </h2>
           <div className="relative rounded-xl px-[0.5px] py-[1px]">
             <div className="absolute -top-8 -left-6">
               <img src={toj} alt="toj" className="w-[50px]" />
