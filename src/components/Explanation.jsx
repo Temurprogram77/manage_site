@@ -14,7 +14,9 @@ const Explanation = () => {
       <div className="explanation-card">
         <h1 className="title">⚠️ Exam Instructions</h1>
         <p className="text">
-          You will have several questions. Each question has a time limit. You can answer via microphone and your results will be saved. You cannot go back, only move forward. Please focus carefully!
+          You will have several questions. Each question has a time limit. You
+          can answer via microphone and your results will be saved. You cannot
+          go back, only move forward. Please focus carefully!
         </p>
         <p className="text">
           When ready, click the button below to start the exam.
