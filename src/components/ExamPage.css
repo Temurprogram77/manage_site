@@ -62,7 +62,7 @@ body {
 }
 
 .gradient {
-  background: linear-gradient(180deg, #00A9F2B2, #00FFEA4D);
+  background: linear-gradient(180deg, #00a9f2b2, #00ffea4d);
 }
 /* question */
 .question-area {
@@ -150,7 +150,7 @@ body {
 }
 
 .mic-btn .progress {
-  stroke: #FFA666;
+  stroke: #ffa666;
   stroke-linecap: round;
   stroke-dasharray: 283;
   stroke-dashoffset: 0;
