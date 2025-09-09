@@ -51,7 +51,7 @@ const Login = ({ chatId }) => {
         imageUrl: "https://picsum.photos/200",
       };
 
-      const res = await fetch("http://167.86.121.42:8080/auth/user/login", {
+      const res = await fetch("https://managelc.uz:8443/auth/user/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

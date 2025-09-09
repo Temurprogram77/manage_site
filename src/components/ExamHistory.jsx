@@ -19,7 +19,7 @@ const ExamHistory = () => {
     // Serverga tokenni tekshirish
     const fetchHistory = async () => {
       try {
-        const res = await fetch("http://167.86.121.42:8080/api/test", {
+        const res = await fetch("https://managelc.uz:8443/api/test", {
           method: "GET",
           headers: {
             "Content-Type": "application/json",

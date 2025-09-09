@@ -13,7 +13,7 @@ const ExamDetail = () => {
     const fetchExamDetail = async () => {
       try {
         const token = localStorage.getItem("token");
-        const res = await fetch(`http://167.86.121.42:8080/api/test/${id}`, {
+        const res = await fetch(`https://managelc.uz:8443/api/test/${id}`, {
           method: "GET",
           headers: {
             Authorization: `Bearer ${token}`,
@@ -36,7 +36,7 @@ const ExamDetail = () => {
     try {
       const token = localStorage.getItem("token");
       const response = await fetch(
-        `http://167.86.121.42:8080/api/test/${id}/pdf`,
+        `https://managelc.uz:8443/api/test/${id}/pdf`,
         {
           method: "GET",
           headers: {

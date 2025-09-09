@@ -75,7 +75,7 @@ const ExamPage = () => {
     try {
       const token = localStorage.getItem("token");
       const res = await fetch(
-        "http://167.86.121.42:8080/question?page=0&size=10",
+        "https://managelc.uz:8443/question?page=0&size=10",
         {
           method: "GET",
           headers: {

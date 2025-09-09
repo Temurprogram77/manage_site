@@ -23,7 +23,7 @@ const Dashboard = () => {
     setUser(parsedUser);
 
     // Dashboard ma'lumotlari
-    fetch("http://167.86.121.42:8080/user/dashboard", {
+    fetch("https://managelc.uz:8443/user/dashboard", {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
@@ -41,7 +41,7 @@ const Dashboard = () => {
       });
 
     // Leaderboard ma'lumotlari
-    fetch("http://167.86.121.42:8080/user/leaderBoard", {
+    fetch("https://managelc.uz:8443/user/leaderBoard", {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
