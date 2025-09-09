@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { HiOutlineCog } from "react-icons/hi";
 import { motion, AnimatePresence } from "framer-motion";
-import "./Account.css"
+import "./Account.css";
 
 const Account = () => {
   const [user, setUser] = useState(null);
