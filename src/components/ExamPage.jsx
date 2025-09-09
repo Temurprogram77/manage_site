@@ -192,9 +192,8 @@ const ExamPage = () => {
 
       if (results.length === 0) return alert("No results to download!");
 
-      // Har bir test natijasini PDF qilib yuklash
       for (let res of results) {
-        const resId = res.questionId; // yoki oxirgi savol idsi
+        const resId = res.questionId;
         const response = await fetch(
           `http://167.86.121.42:8080/api/test/${resId}/pdf`,
           {
@@ -238,7 +237,14 @@ const ExamPage = () => {
         <div className="bg-[#C0C0C0] w-full pb-2 rounded-xl">
           <div className="bg-[#FF6A00] w-full h-full px-7 pb-2 pt-3 rounded-xl flex items-center justify-between text-white font-bold">
             <p className="text-[25px]">Overal: </p>
-            <h2 className="text-[45px]">52</h2>
+            <h2 className="text-[45px]">
+              {results.length > 0
+                ? Math.round(
+                    (results.filter((r) => r.correct).length / results.length) *
+                      100
+                  )
+                : 0}
+            </h2>
           </div>
         </div>
         <div className="flex justify-between gap-2 w-full">
@@ -269,10 +275,6 @@ const ExamPage = () => {
               <p>
                 <span className="font-semibold">Your answer:</span>{" "}
                 {res.answer || "No answer"}
-              </p>
-              <p>
-                <span className="font-semibold">Correct:</span>{" "}
-                {res.correct ? "✅ Right" : "❌ Wrong"}
               </p>
               <p>
                 <span className="font-semibold">Level:</span> {res.level}

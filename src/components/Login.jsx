@@ -51,7 +51,7 @@ const Login = ({ chatId }) => {
         imageUrl: "https://picsum.photos/200",
       };
 
-      const res = await fetch("https://167.86.121.42:8080/auth/user/login", {
+      const res = await fetch("http://167.86.121.42:8080/auth/user/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -71,9 +71,21 @@ const Login = ({ chatId }) => {
       }
 
       if (data.data) {
+        // tokenni alohida saqlaymiz
         localStorage.setItem("token", data.data);
-        localStorage.setItem("userData", JSON.stringify(data.data));
-        console.log("📌 Token saqlandi:", data.data);
+
+        // foydalanuvchi ma'lumotlarini ham saqlaymiz
+        const userInfo = {
+          fullName: formData.fullname,
+          phone: formData.phone,
+          region: formData.region,
+          city: formData.city,
+          chatId: formData.chatId,
+          photo_url: "https://picsum.photos/200", // Telegram rasmi bo‘lsa shu yerga o‘rnatasiz
+        };
+
+        localStorage.setItem("userData", JSON.stringify(userInfo));
+        console.log("✅ User saqlandi:", userInfo);
       }
 
       navigate("/dashboard");

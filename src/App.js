@@ -15,6 +15,7 @@ import ExamHistory from "./components/ExamHistory";
 import ExamDetail from "./components/Examdetail";
 import NotFound from "./components/NotFound";
 import RegisterForm from "./components/RegisterForm";
+import Account from "./components/Account";
 
 function App() {
   const [telegramUser, setTelegramUser] = useState(null);
@@ -32,6 +33,7 @@ function App() {
           <Route path="/explanation" element={<Explanation />} />
           <Route path="/exam" element={<ExamPage />} />
           <Route path="/exams-history" element={<ExamHistory />} />
+          <Route path="/account" element={<Account />} />
           <Route 
             path="/telegram-login" 
             element={<TelegramLogin onAuth={(user) => setTelegramUser(user)} />} 

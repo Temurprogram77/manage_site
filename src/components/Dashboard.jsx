@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import toj from "../assets/toj.png";
 import star from "../assets/star.png";
+import logo from "../assets/image.png";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -69,14 +70,25 @@ const Dashboard = () => {
       <div className="w-full max-w-sm md:max-w-3xl lg:max-w-[75rem] space-y-4">
         {/* Score */}
         <div className="bg-white rounded-2xl shadow p-4 flex justify-between items-center">
-          <span className="text-xl md:text-2xl font-bold">
-            {user?.score || 0}
-          </span>
-          <span className="text-yellow-500 text-2xl md:text-3xl">★</span>
+          <div>
+            <span className="text-xl md:text-2xl font-bold">
+              {user?.score || 0}
+            </span>
+            <span className="text-yellow-500 text-2xl md:text-3xl">★</span>
+          </div>
+          <Link to="/account">
+            <div className="border-2 border-black flex items-center justify-center rounded-full overflow-hidden">
+              <img
+                src={user?.photo_url || logo}
+                className="w-[35px] h-[35px] object-cover"
+                alt="profile"
+              />
+            </div>
+          </Link>
         </div>
 
         {/* Exams history */}
-        <div className="pb-2 bg-[#c0c0c0] rounded-xl">
+        <div className="pb-2 bg-[#c0c0c0] rounded-2xl">
           <div
             onClick={() => navigate("/exams-history")}
             className="bg-orange-500 text-white rounded-2xl shadow p-4 md:col-span-2 cursor-pointer hover:opacity-90"
@@ -134,9 +146,7 @@ const Dashboard = () => {
 
         {/* Leaderboard */}
         <div className="gradient w-full rounded-xl p-3 border border-black">
-          <h2 className="text-[20px] font-bold text-center mb-4">
-            Leaderboard
-          </h2>
+          <h2 className="text-[20px] font-bold text-center mb-4">Leaderboard</h2>
           <div className="relative rounded-xl px-[0.5px] py-[1px]">
             <div className="absolute -top-8 -left-6">
               <img src={toj} alt="toj" className="w-[50px]" />
