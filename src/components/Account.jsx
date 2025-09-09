@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { HiOutlineCog } from "react-icons/hi";
 import { motion, AnimatePresence } from "framer-motion";
+import "./Account.css"
 
 const Account = () => {
   const [user, setUser] = useState(null);
@@ -52,7 +53,7 @@ const Account = () => {
   }
 
   return (
-    <div className="relative flex flex-col items-center my-4 rounded-2xl py-4 border-2 border-black space-y-3 gradient sm:max-w-[400px] h-[95vh] w-auto sm:mx-auto mx-4">
+    <div className="relative flex flex-col items-center sm:my-4 my-0 sm:rounded-2xl rounded-none py-4 sm:border-2 border-0 border-black space-y-3 gradient sm:max-w-[400px] sm:h-[95vh] h-screen w-auto sm:mx-auto mx-0">
       <div className="relative">
         <img
           src={user.photo_url || "https://telegram.org/img/t_logo.png"}
@@ -108,9 +109,7 @@ const Account = () => {
             <input
               type="text"
               defaultValue={user.region}
-              onChange={(e) =>
-                setNewUser({ ...user, region: e.target.value })
-              }
+              onChange={(e) => setNewUser({ ...user, region: e.target.value })}
               className="border p-2 rounded w-full"
             />
             <input
@@ -141,20 +140,23 @@ const Account = () => {
             transition={{ duration: 0.3 }}
             className="flex flex-col px-4 w-full"
           >
-            <div className="bg-white p-3 rounded-xl">
-              <h2 className="text-xl font-semibold">{user.fullName}</h2>
-              <p className="text-gray-600">
+            <div className="rounded-xl  flex flex-col gap-3">
+              <h2 className="text-xl font-semibold gradient-text">
+                {user.fullName}
+              </h2>
+
+              <div className="bg-white rounded-xl px-3 py-1.5 text-gray-600">
                 <span className="text-black">Telefon raqam</span> {user.phone}
-              </p>
-              <p className="text-gray-600">
+              </div>
+              <div className="bg-white rounded-xl px-3 py-1.5 text-gray-600">
                 <span className="text-black">Viloyat</span>: {user.region},
-              </p>
-              <p className="text-gray-600">
+              </div>
+              <div className="bg-white rounded-xl px-3 py-1.5 text-gray-600">
                 <span className="text-black">Shahar</span>: {user.city},
-              </p>
-              <p className="text-gray-500 text-sm">
+              </div>
+              <div className="bg-white rounded-xl px-3 py-1.5 text-gray-500 text-sm">
                 Telegram ID: {user.chatId}
-              </p>
+              </div>
             </div>
           </motion.div>
         )}
