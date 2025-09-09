@@ -1,3 +1,4 @@
+// src/components/ExamPage.jsx
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useStars } from "../StarContext";
@@ -21,7 +22,7 @@ const ExamPage = () => {
 
   const recognitionRef = useRef(null);
 
-  // Lokal AI baholash
+  // Lokal baholash (real AI emas, qoidaga asoslangan)
   const evaluateAnswerLocally = (questionText, answerText) => {
     if (!answerText) return { correct: false, level: "A1" };
     const q = questionText.toLowerCase();
@@ -34,6 +35,7 @@ const ExamPage = () => {
     return { correct: false, level: "A2" };
   };
 
+  // SpeechRecognition sozlash
   useEffect(() => {
     const SpeechRecognition =
       window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -56,23 +58,19 @@ const ExamPage = () => {
 
     recognitionRef.current = recog;
 
-    // cleanup faqat stop qilinadi
     return () => {
-      if (recognitionRef.current && recognitionRef.current.stop) {
-        recognitionRef.current.stop();
-      }
+      if (recognitionRef.current?.stop) recognitionRef.current.stop();
     };
   }, []);
 
+  // Login tekshirish
   useEffect(() => {
     const storedUser = localStorage.getItem("userData");
     const token = localStorage.getItem("token");
-
-    if (!storedUser || !token) {
-      navigate("/login");
-    }
+    if (!storedUser || !token) navigate("/login");
   }, []);
 
+  // Savollarni yuklash
   const loadQuestions = async () => {
     try {
       const token = localStorage.getItem("token");
@@ -99,12 +97,7 @@ const ExamPage = () => {
     }
   };
 
-  const finishExam = () => {
-    setStage("finished");
-    if (results.length > 0)
-      setFinalLevel(results[results.length - 1].level || null);
-  };
-
+  // Javobni saqlash va baholash
   const sendAnswer = () => {
     if (!question) return;
 
@@ -115,12 +108,7 @@ const ExamPage = () => {
 
     setResults((prev) => [
       ...prev,
-      {
-        questionId: question.id,
-        answer: transcript || null,
-        correct,
-        level,
-      },
+      { questionId: question.id, answer: transcript || null, correct, level },
     ]);
 
     setTranscript("");
@@ -135,12 +123,18 @@ const ExamPage = () => {
     } else finishExam();
   };
 
+  // Testni tugatish
+  const finishExam = () => {
+    setStage("finished");
+    if (results.length > 0)
+      setFinalLevel(results[results.length - 1].level || null);
+  };
+
+  // Timer
   useEffect(() => {
     if (stage === "loading" || stage === "finished" || !question) return;
 
-    const timer = setInterval(() => {
-      setTimeLeft((t) => t - 1);
-    }, 1000);
+    const timer = setInterval(() => setTimeLeft((t) => t - 1), 1000);
     return () => clearInterval(timer);
   }, [stage, question]);
 
@@ -148,11 +142,10 @@ const ExamPage = () => {
     if (timeLeft > 0) return;
 
     if (stage === "thinking") startSpeaking();
-    else if (stage === "speaking") {
-      stopSpeaking();
-    }
+    else if (stage === "speaking") stopSpeaking();
   }, [timeLeft, stage]);
 
+  // Mikrofon boshqarish
   const startSpeaking = async () => {
     if (!recognitionRef.current) return;
     try {
@@ -172,6 +165,7 @@ const ExamPage = () => {
     sendAnswer();
   };
 
+  // Matnni o‘qib berish
   const speakText = (text) => {
     if (!("speechSynthesis" in window)) return;
     const u = new SpeechSynthesisUtterance(text);
@@ -186,46 +180,21 @@ const ExamPage = () => {
 
   const progress = stage === "speaking" ? (timeLeft / 30) * 283 : 0;
 
-  const downloadPDF = async () => {
-    try {
-      const token = localStorage.getItem("token");
-
-      if (results.length === 0) return alert("No results to download!");
-
-      for (let res of results) {
-        const resId = res.questionId;
-        const response = await fetch(
-          `http://167.86.121.42:8080/api/test/${resId}/pdf`,
-          {
-            method: "GET",
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-
-        if (!response.ok)
-          throw new Error(`Failed to download PDF for test ${resId}`);
-
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `test_${resId}.pdf`; // fayl nomi
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        window.URL.revokeObjectURL(url); // URLni ozod qilish
-      }
-
-      alert("All PDFs downloaded!");
-    } catch (err) {
-      console.error(err);
-      alert("Failed to download PDFs");
-    }
+  // ❌ Bu joyda API orqali PDF yuklab olishni olib tashladim
+  const downloadPDF = () => {
+    if (results.length === 0) return alert("No results to download!");
+    const blob = new Blob([JSON.stringify(results, null, 2)], {
+      type: "application/json",
+    });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "exam_results.json";
+    a.click();
+    window.URL.revokeObjectURL(url);
   };
 
+  // Natija sahifasi
   if (stage === "finished")
     return (
       <div className="exam-root flex flex-col gap-4 max-w-[350px] mx-auto">
@@ -235,34 +204,32 @@ const ExamPage = () => {
         </h2>
 
         <div className="bg-[#C0C0C0] w-full pb-2 rounded-xl">
-          <div className="bg-[#FF6A00] w-full h-full px-7 pb-2 pt-3 rounded-xl flex items-center justify-between text-white font-bold">
-            <p className="text-[25px]">Overal: </p>
+          <div className="bg-[#FF6A00] px-7 pb-2 pt-3 rounded-xl flex items-center justify-between text-white font-bold">
+            <p className="text-[25px]">Overall:</p>
             <h2 className="text-[45px]">
               {results.length > 0
                 ? Math.round(
-                    (results.filter((r) => r.correct).length / results.length) *
-                      100
+                    (results.filter((r) => r.correct).length / results.length) * 100
                   )
                 : 0}
+              %
             </h2>
           </div>
         </div>
+
         <div className="flex justify-between gap-2 w-full">
-          <div className="bg-[#C0C0C0] pb-2 rounded-xl">
-            <div className="bg-[#FFE100] h-full px-7 pb-2 pt-3 sm:text-[45px] text-[38px] rounded-xl flex items-center text-white font-bold">
-              {finalLevel || "N/A"}
-            </div>
+          <div className="bg-[#FFE100] px-7 pb-2 pt-3 text-[38px] rounded-xl text-white font-bold text-center">
+            {finalLevel || "N/A"}
           </div>
-          <div className="bg-[#C0C0C0] pb-2 rounded-xl">
-            <div
-              onClick={downloadPDF}
-              className="bg-[#00B3FF] px-7 pb-2 pt-3 sm:text-[22px] text-[18px] rounded-xl flex flex-col items-center text-white font-bold cursor-pointer hover:opacity-90 transition-all"
-            >
-              <img src={download} alt="download" className="w-[40px]" />
-              <p>Download</p>
-            </div>
+          <div
+            onClick={downloadPDF}
+            className="bg-[#00B3FF] px-7 pb-2 pt-3 text-[18px] rounded-xl flex flex-col items-center text-white font-bold cursor-pointer hover:opacity-90 transition-all"
+          >
+            <img src={download} alt="download" className="w-[40px]" />
+            <p>Download</p>
           </div>
         </div>
+
         <div className="flex flex-col gap-3 w-full">
           {results.map((res, idx) => (
             <div
@@ -287,6 +254,7 @@ const ExamPage = () => {
 
   if (!question) return <div className="exam-root">⏳ Loading question...</div>;
 
+  // Savollar bosqichi
   return (
     <div className="exam-root">
       <div className="exam-card">
@@ -299,12 +267,10 @@ const ExamPage = () => {
         </div>
 
         <div className="question-area relative">
-          <div className="top-6 bg-[#e65c00] w-fit flex justify-center text-white px-3 rounded-xl absolute">
-            <div className="w-fit">
-              {stage === "thinking" && timeLeft > 0
-                ? `${timeLeft}s`
-                : "Start talking."}
-            </div>
+          <div className="top-6 bg-[#e65c00] text-white px-3 rounded-xl absolute">
+            {stage === "thinking" && timeLeft > 0
+              ? `${timeLeft}s`
+              : "Start talking."}
           </div>
 
           {question.image && (
@@ -321,17 +287,12 @@ const ExamPage = () => {
         <div className="transcript-area">
           <div className="transcript-label">Your answer</div>
           <div className="transcript-box">
-            {transcript || (
-              <span className="muted">Speak using the mic...</span>
-            )}
+            {transcript || <span className="muted">Speak using the mic...</span>}
           </div>
         </div>
 
         <div className="controls">
-          <button
-            className={`mic-btn ${listening ? "listening" : ""}`}
-            disabled
-          >
+          <button className={`mic-btn ${listening ? "listening" : ""}`} disabled>
             <svg width="90" height="90">
               <circle className="bg" cx="45" cy="45" r="40" />
               {stage === "speaking" && (
