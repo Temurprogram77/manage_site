@@ -1,4 +1,4 @@
-// ExamPage.jsx
+// src/components/ExamPage.jsx
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useStars } from "../StarContext";
@@ -11,7 +11,6 @@ const ExamPage = () => {
   const [finalDescription, setFinalDescription] = useState("");
   const [testId, setTestId] = useState(null);
   const navigate = useNavigate();
-  const { addStar } = useStars();
 
   const [question, setQuestion] = useState(null);
   const [stage, setStage] = useState("loading");
@@ -23,7 +22,7 @@ const ExamPage = () => {
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
 
-  // --- Savolni AI orqali ovoz chiqarib o‘qish (TTS) ---
+  // --- TTS: savolni ovoz chiqarib o‘qish ---
   const speakQuestion = async (text, callback) => {
     try {
       const res = await fetch("http://localhost:5000/api/tts", {
@@ -31,6 +30,8 @@ const ExamPage = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text }),
       });
+
+      if (!res.ok) throw new Error("TTS server error");
 
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -46,7 +47,7 @@ const ExamPage = () => {
     }
   };
 
-  // --- Audio yozishni boshlash (STT) ---
+  // --- STT: mikrofon orqali yozib olish ---
   const startListening = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -67,6 +68,7 @@ const ExamPage = () => {
             method: "POST",
             body: formData,
           });
+          if (!res.ok) throw new Error("STT server error");
           const data = await res.json();
           setAnswer(data.text || "");
         } catch (err) {
@@ -88,7 +90,7 @@ const ExamPage = () => {
     setListening(false);
   };
 
-  // --- API bilan ishlash ---
+  // --- API orqali testni boshlash ---
   const callStartTest = async (payload = {}) => {
     try {
       const token = localStorage.getItem("token");
@@ -109,7 +111,6 @@ const ExamPage = () => {
         setStage("reading");
         setAnswer("");
 
-        // AI savolni o‘qiydi
         speakQuestion(data.data.question, () => {
           setStage("thinking");
           setTimeLeft(data.data.timeToThink || 5);
@@ -153,7 +154,9 @@ const ExamPage = () => {
     if (stage !== "thinking" && stage !== "speaking") return;
     if (!question) return;
 
-    const timer = setInterval(() => setTimeLeft((t) => t - 1), 1000);
+    const timer = setInterval(() => {
+      setTimeLeft((t) => (t > 0 ? t - 1 : 0));
+    }, 1000);
     return () => clearInterval(timer);
   }, [stage, question]);
 
@@ -172,7 +175,7 @@ const ExamPage = () => {
 
   const progress =
     stage === "speaking" && question
-      ? (timeLeft / (question.timeToComplete || 30)) * 283
+      ? Math.max((timeLeft / (question.timeToComplete || 30)) * 283, 0)
       : 0;
 
   // ✅ PDF yuklash
@@ -266,13 +269,14 @@ const ExamPage = () => {
               {timeLeft}s
             </div>
           )}
-          {question.imgUrl && (
+          {question.imgUrl ? (
             <img
               src={question.imgUrl}
               alt="Question visual"
               className="w-full max-w-md mx-auto mb-4 rounded-xl"
             />
-          )}
+          ) : null}
+
           <div className="question-text">{question.question}</div>
         </div>
 
