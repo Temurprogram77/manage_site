@@ -104,7 +104,6 @@ const Dashboard = () => {
         <div className="grid grid-cols-2 gap-4 md:grid-cols-1">
           <div className="pb-2 bg-[#c0c0c0] rounded-2xl">
             <div
-              onClick={() => navigate("/level")}
               className="bg-white rounded-2xl shadow p-4 text-center cursor-pointer hover:bg-gray-50"
             >
               <p className="text-2xl font-bold">{level || "..."}</p>
@@ -113,7 +112,6 @@ const Dashboard = () => {
           </div>
           <div className="pb-2 bg-[#c0c0c0] rounded-2xl">
             <div
-              onClick={() => navigate("/average-score")}
               className="bg-white rounded-2xl shadow p-4 text-center cursor-pointer hover:bg-gray-50"
             >
               <p className="text-2xl font-bold">{user?.score || 0}</p>

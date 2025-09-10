@@ -1,138 +1,157 @@
-// src/components/ExamPage.jsx
+// ExamPage.jsx
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useStars } from "../StarContext";
 import "./ExamPage.css";
 import micro from "../assets/micro.png";
-import download from "../assets/download.png";
 
 const ExamPage = () => {
-  const [finalLevel, setFinalLevel] = useState(null);
+  const [finalPercentage, setFinalPercentage] = useState(null);
+  const [finalStatus, setFinalStatus] = useState(null);
+  const [finalDescription, setFinalDescription] = useState("");
+  const [testId, setTestId] = useState(null);
   const navigate = useNavigate();
   const { addStar } = useStars();
 
-  const [questions, setQuestions] = useState([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
   const [question, setQuestion] = useState(null);
   const [stage, setStage] = useState("loading");
   const [timeLeft, setTimeLeft] = useState(0);
   const [listening, setListening] = useState(false);
-  const [transcript, setTranscript] = useState("");
+  const [answer, setAnswer] = useState("");
   const [results, setResults] = useState([]);
 
-  const recognitionRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
 
-  // Lokal baholash (real AI emas, qoidaga asoslangan)
-  const evaluateAnswerLocally = (questionText, answerText) => {
-    if (!answerText) return { correct: false, level: "A1" };
-    const q = questionText.toLowerCase();
-    const a = answerText.toLowerCase();
-
-    if (q.includes("hello") && a.includes("hello"))
-      return { correct: true, level: "B1" };
-    if (q.includes("your name") && a.includes("temur"))
-      return { correct: true, level: "B2" };
-    return { correct: false, level: "A2" };
-  };
-
-  // SpeechRecognition sozlash
-  useEffect(() => {
-    const SpeechRecognition =
-      window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) return;
-
-    const recog = new SpeechRecognition();
-    recog.lang = "en-US";
-    recog.interimResults = false;
-    recog.continuous = true;
-
-    recog.onresult = (e) => {
-      const text = Array.from(e.results)
-        .map((r) => r[0].transcript)
-        .join(" ")
-        .trim();
-      setTranscript(text);
-    };
-
-    recog.onerror = () => setListening(false);
-
-    recognitionRef.current = recog;
-
-    return () => {
-      if (recognitionRef.current?.stop) recognitionRef.current.stop();
-    };
-  }, []);
-
-  // Login tekshirish
-  useEffect(() => {
-    const storedUser = localStorage.getItem("userData");
-    const token = localStorage.getItem("token");
-    if (!storedUser || !token) navigate("/login");
-  }, []);
-
-  // Savollarni yuklash
-  const loadQuestions = async () => {
+  // --- Savolni AI orqali ovoz chiqarib o‘qish (TTS) ---
+  const speakQuestion = async (text, callback) => {
     try {
-      const token = localStorage.getItem("token");
-      const res = await fetch(
-        "https://managelc.uz:8443/question?page=0&size=10",
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-      const data = await res.json();
-      if (data?.data?.body?.length > 0) {
-        setQuestions(data.data.body);
-        setQuestion(data.data.body[0]);
-        setStage("thinking");
-        setTimeLeft(15);
-        speakText(data.data.body[0].question);
-      }
+      const res = await fetch("http://localhost:5000/api/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+
+      audio.onended = () => callback?.();
+      audio.onerror = () => callback?.();
+
+      audio.play();
     } catch (err) {
-      console.error(err);
+      console.error("TTS error:", err);
+      callback?.();
     }
   };
 
-  // Javobni saqlash va baholash
-  const sendAnswer = () => {
+  // --- Audio yozishni boshlash (STT) ---
+  const startListening = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorderRef.current = new MediaRecorder(stream);
+      audioChunksRef.current = [];
+
+      mediaRecorderRef.current.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+
+      mediaRecorderRef.current.onstop = async () => {
+        const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+        const formData = new FormData();
+        formData.append("audio", blob, "answer.webm");
+
+        try {
+          const res = await fetch("http://localhost:5000/api/stt", {
+            method: "POST",
+            body: formData,
+          });
+          const data = await res.json();
+          setAnswer(data.text || "");
+        } catch (err) {
+          console.error("STT error:", err);
+        }
+      };
+
+      mediaRecorderRef.current.start();
+      setListening(true);
+    } catch {
+      alert("Mikrofonni yoqishingiz kerak!");
+    }
+  };
+
+  const stopListening = () => {
+    if (mediaRecorderRef.current && listening) {
+      mediaRecorderRef.current.stop();
+    }
+    setListening(false);
+  };
+
+  // --- API bilan ishlash ---
+  const callStartTest = async (payload = {}) => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch("https://managelc.uz:8443/api/test/startTest", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) throw new Error("API error");
+      const data = await res.json();
+
+      if (data?.success && data?.data?.question) {
+        setQuestion(data.data);
+        setStage("reading");
+        setAnswer("");
+
+        // AI savolni o‘qiydi
+        speakQuestion(data.data.question, () => {
+          setStage("thinking");
+          setTimeLeft(data.data.timeToThink || 5);
+        });
+      } else if (data?.success && !data?.data?.question) {
+        setStage("finished");
+        setFinalPercentage(data?.data?.percentage ?? null);
+        setFinalStatus(data?.data?.status ?? null);
+        setFinalDescription(data?.data?.description || "");
+        setResults(data?.data?.results || []);
+        setTestId(data?.data?.id || null);
+      }
+    } catch (err) {
+      console.error("Failed to call startTest:", err);
+    }
+  };
+
+  useEffect(() => {
+    callStartTest();
+  }, []);
+
+  const sendAnswer = async () => {
     if (!question) return;
 
-    const { correct, level } = evaluateAnswerLocally(
-      question.question,
-      transcript
-    );
+    const payload = {
+      questionId: question.id,
+      answer: answer || "",
+    };
 
     setResults((prev) => [
       ...prev,
-      { questionId: question.id, answer: transcript || null, correct, level },
+      { questionId: question.id, answer: answer || "No answer" },
     ]);
 
-    setTranscript("");
-    const nextIndex = currentIndex + 1;
-    if (nextIndex < questions.length) {
-      const nextQ = questions[nextIndex];
-      setCurrentIndex(nextIndex);
-      setQuestion(nextQ);
-      setStage("thinking");
-      setTimeLeft(15);
-      speakText(nextQ.question);
-    } else finishExam();
+    setAnswer("");
+    await callStartTest(payload);
   };
 
-  // Testni tugatish
-  const finishExam = () => {
-    setStage("finished");
-    if (results.length > 0)
-      setFinalLevel(results[results.length - 1].level || null);
-  };
-
-  // Timer
+  // vaqt hisoblash
   useEffect(() => {
-    if (stage === "loading" || stage === "finished" || !question) return;
+    if (stage !== "thinking" && stage !== "speaking") return;
+    if (!question) return;
 
     const timer = setInterval(() => setTimeLeft((t) => t - 1), 1000);
     return () => clearInterval(timer);
@@ -141,158 +160,138 @@ const ExamPage = () => {
   useEffect(() => {
     if (timeLeft > 0) return;
 
-    if (stage === "thinking") startSpeaking();
-    else if (stage === "speaking") stopSpeaking();
+    if (stage === "thinking") {
+      setStage("speaking");
+      setTimeLeft(question?.timeToComplete || 30);
+      startListening();
+    } else if (stage === "speaking") {
+      stopListening();
+      sendAnswer();
+    }
   }, [timeLeft, stage]);
 
-  // Mikrofon boshqarish
-  const startSpeaking = async () => {
-    if (!recognitionRef.current) return;
+  const progress =
+    stage === "speaking" && question
+      ? (timeLeft / (question.timeToComplete || 30)) * 283
+      : 0;
+
+  // ✅ PDF yuklash
+  const downloadPdf = async () => {
+    if (!testId) {
+      alert("Test ID topilmadi!");
+      return;
+    }
     try {
-      await navigator.mediaDevices.getUserMedia({ audio: true });
-      setStage("speaking");
-      setTimeLeft(30);
-      recognitionRef.current.start();
-      setListening(true);
-    } catch {
-      alert("Mikrofonni yoqishingiz kerak!");
+      const token = localStorage.getItem("token");
+      const res = await fetch(
+        `https://managelc.uz:8443/api/test/${testId}/pdf`,
+        {
+          method: "GET",
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      if (!res.ok) throw new Error("PDF yuklab bo‘lmadi");
+
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `test-result-${testId}.pdf`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("PDF yuklashda xatolik:", err);
+      alert("PDF yuklashda muammo bo‘ldi!");
     }
   };
 
-  const stopSpeaking = () => {
-    if (recognitionRef.current && listening) recognitionRef.current.stop();
-    setListening(false);
-    sendAnswer();
-  };
-
-  // Matnni o‘qib berish
-  const speakText = (text) => {
-    if (!("speechSynthesis" in window)) return;
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = "en-US";
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(u);
-  };
-
-  useEffect(() => {
-    loadQuestions();
-  }, []);
-
-  const progress = stage === "speaking" ? (timeLeft / 30) * 283 : 0;
-
-  // ❌ Bu joyda API orqali PDF yuklab olishni olib tashladim
-  const downloadPDF = () => {
-    if (results.length === 0) return alert("No results to download!");
-    const blob = new Blob([JSON.stringify(results, null, 2)], {
-      type: "application/json",
-    });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "exam_results.json";
-    a.click();
-    window.URL.revokeObjectURL(url);
-  };
-
-  // Natija sahifasi
-  if (stage === "finished")
+  // --- RESULT UI ---
+  if (stage === "finished") {
     return (
-      <div className="exam-root flex flex-col gap-4 max-w-[350px] mx-auto">
-        <h2 className="exam-title text-[30px] font-bold text-center mb-8 leading-7">
-          Result for test number:{" "}
-          {results.length > 0 ? results[results.length - 1].questionId : "N/A"}
-        </h2>
-
-        <div className="bg-[#C0C0C0] w-full pb-2 rounded-xl">
-          <div className="bg-[#FF6A00] px-7 pb-2 pt-3 rounded-xl flex items-center justify-between text-white font-bold">
-            <p className="text-[25px]">Overall:</p>
-            <h2 className="text-[45px]">
-              {results.length > 0
-                ? Math.round(
-                    (results.filter((r) => r.correct).length / results.length) * 100
-                  )
-                : 0}
-              %
-            </h2>
+      <div className="exam-root result-page">
+        <div className="result-card">
+          <h2 className="result-title">🎉 Test tugadi!</h2>
+          <div className="percentage-box">Overall: {finalPercentage ?? 0}%</div>
+          <div className="status-row">
+            <div className="status-box">{finalStatus ?? "N/A"}</div>
+            <button className="btn pdf-btn" onClick={downloadPdf}>
+              📄 PDF yuklab olish
+            </button>
           </div>
-        </div>
-
-        <div className="flex justify-between gap-2 w-full">
-          <div className="bg-[#FFE100] px-7 pb-2 pt-3 text-[38px] rounded-xl text-white font-bold text-center">
-            {finalLevel || "N/A"}
-          </div>
-          <div
-            onClick={downloadPDF}
-            className="bg-[#00B3FF] px-7 pb-2 pt-3 text-[18px] rounded-xl flex flex-col items-center text-white font-bold cursor-pointer hover:opacity-90 transition-all"
-          >
-            <img src={download} alt="download" className="w-[40px]" />
-            <p>Download</p>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-3 w-full">
-          {results.map((res, idx) => (
-            <div
-              key={res.questionId + idx}
-              className="bg-[#ffffffcc] w-full p-3 rounded-xl shadow flex flex-col gap-2"
-            >
-              <p className="font-bold">
-                {idx + 1}. Question ID: {res.questionId}
-              </p>
-              <p>
-                <span className="font-semibold">Your answer:</span>{" "}
-                {res.answer || "No answer"}
-              </p>
-              <p>
-                <span className="font-semibold">Level:</span> {res.level}
-              </p>
+          {finalDescription && (
+            <div className="description">
+              <h3>📖 Sharh</h3>
+              <p>{finalDescription}</p>
             </div>
-          ))}
+          )}
+          <div className="answers">
+            <h3>📋 Sizning javoblaringiz</h3>
+            <ul>
+              {results.map((r, i) => (
+                <li key={i}>
+                  <b>Q{r.questionId}:</b> {r.answer}
+                </li>
+              ))}
+            </ul>
+          </div>
+          <button
+            className="btn back-btn"
+            onClick={() => navigate("/dashboard")}
+          >
+            ⬅️ Asosiy sahifaga qaytish
+          </button>
         </div>
       </div>
     );
+  }
 
-  if (!question) return <div className="exam-root">⏳ Loading question...</div>;
+  // --- SAVOL UI ---
+  if (!question) return <div className="exam-root">⏳ Yuklanmoqda...</div>;
 
-  // Savollar bosqichi
   return (
     <div className="exam-root">
       <div className="exam-card">
         <div className="exam-header mb-3 flex w-full justify-between">
           <div className="w-[7.5%]"></div>
           <div className="part">
-            Category: {question.categoryName} | Page: {currentIndex + 1}
+            Category: {question.categoryName} | {question.subLevelName}
           </div>
-          <div className="part">1.1</div>
+          <div className="part">#{question.id}</div>
         </div>
 
         <div className="question-area relative">
-          <div className="top-6 bg-[#e65c00] text-white px-3 rounded-xl absolute">
-            {stage === "thinking" && timeLeft > 0
-              ? `${timeLeft}s`
-              : "Start talking."}
-          </div>
-
-          {question.image && (
+          {stage === "thinking" && timeLeft > 0 && (
+            <div className="top-6 bg-[#e65c00] text-white px-3 rounded-xl absolute">
+              {timeLeft}s
+            </div>
+          )}
+          {question.imgUrl && (
             <img
-              src={question.image}
+              src={question.imgUrl}
               alt="Question visual"
               className="w-full max-w-md mx-auto mb-4 rounded-xl"
             />
           )}
-
           <div className="question-text">{question.question}</div>
         </div>
 
-        <div className="transcript-area">
+        <div className="transcript-area mt-4">
           <div className="transcript-label">Your answer</div>
-          <div className="transcript-box">
-            {transcript || <span className="muted">Speak using the mic...</span>}
-          </div>
+          <input
+            type="text"
+            className="transcript-box"
+            value={answer}
+            onChange={(e) => setAnswer(e.target.value)}
+            placeholder="Speak or type your answer..."
+          />
         </div>
 
-        <div className="controls">
-          <button className={`mic-btn ${listening ? "listening" : ""}`} disabled>
+        <div className="controls mt-4">
+          <button
+            className={`mic-btn ${listening ? "listening" : ""}`}
+            onClick={listening ? stopListening : startListening}
+          >
             <svg width="90" height="90">
               <circle className="bg" cx="45" cy="45" r="40" />
               {stage === "speaking" && (
@@ -307,11 +306,6 @@ const ExamPage = () => {
             </svg>
             <img src={micro} alt="mic" />
           </button>
-        </div>
-
-        <div className="phase-info">
-          {stage === "thinking" && <p>🤔 Thinking time...</p>}
-          {stage === "speaking" && <p>🎤 Speak now...</p>}
         </div>
       </div>
     </div>
